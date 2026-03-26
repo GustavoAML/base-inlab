@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 23-03-2026 a las 06:20:50
+-- Tiempo de generación: 26-03-2026 a las 17:36:08
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -24,22 +24,23 @@ SET time_zone = "+00:00";
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `categoria`
+-- Estructura de tabla para la tabla `consumibles`
 --
 
-CREATE TABLE `categoria` (
-  `id_categoria` int(11) NOT NULL,
-  `nombre` varchar(100) NOT NULL
+CREATE TABLE `consumibles` (
+  `id` int(11) NOT NULL,
+  `nombre_con` varchar(100) NOT NULL,
+  `stock` int(11) NOT NULL,
+  `id_laboratorio` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Volcado de datos para la tabla `categoria`
+-- Volcado de datos para la tabla `consumibles`
 --
 
-INSERT INTO `categoria` (`id_categoria`, `nombre`) VALUES
-(1, 'Monitores'),
-(2, 'Computadoras'),
-(3, 'Consumibles');
+INSERT INTO `consumibles` (`id`, `nombre_con`, `stock`, `id_laboratorio`) VALUES
+(1, 'Memoria RAM DDR4', 24, 1),
+(4, 'Mouses', 35, 1);
 
 -- --------------------------------------------------------
 
@@ -52,6 +53,13 @@ CREATE TABLE `encargado` (
   `id_usuario` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Volcado de datos para la tabla `encargado`
+--
+
+INSERT INTO `encargado` (`id_encargado`, `id_usuario`) VALUES
+(10, 12);
+
 -- --------------------------------------------------------
 
 --
@@ -61,35 +69,10 @@ CREATE TABLE `encargado` (
 CREATE TABLE `equipo` (
   `id_equipo` int(11) NOT NULL,
   `nombre` varchar(100) NOT NULL,
-  `id_categoria` int(11) NOT NULL,
   `no_serie` varchar(100) NOT NULL,
   `estado` varchar(100) NOT NULL,
   `id_laboratorio` int(11) NOT NULL,
-  `foto` longtext DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Volcado de datos para la tabla `equipo`
---
-
-INSERT INTO `equipo` (`id_equipo`, `nombre`, `id_categoria`, `no_serie`, `estado`, `id_laboratorio`, `foto`) VALUES
-(7, 'Monitor Dell 24\" UltraSharp', 1, 'MON-DELL-24-001', 'Disponible', 1, NULL),
-(8, 'Torre HP ProDesk 600 G6', 2, 'CPU-HP-600-ABC', 'En Uso', 1, NULL),
-(9, 'Kit Teclado y Mouse Logitech MK270', 3, 'PER-LOGI-K270', 'Disponible', 1, NULL);
-
--- --------------------------------------------------------
-
---
--- Estructura de tabla para la tabla `historial_incidencias`
---
-
-CREATE TABLE `historial_incidencias` (
-  `id` int(11) NOT NULL,
-  `accion` varchar(100) NOT NULL,
-  `fecha_hora` datetime NOT NULL,
-  `id_incidencia` int(11) NOT NULL,
-  `id_equipo` int(11) NOT NULL,
-  `id_usuario` int(11) NOT NULL
+  `tipo` enum('PC','Monitoe') DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -105,7 +88,8 @@ CREATE TABLE `incidencia` (
   `fecha` date NOT NULL,
   `hora` time NOT NULL,
   `descripcion` text NOT NULL,
-  `estado` varchar(100) NOT NULL
+  `estado` varchar(100) NOT NULL,
+  `foto` longtext DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -116,9 +100,9 @@ CREATE TABLE `incidencia` (
 
 CREATE TABLE `laboratorio` (
   `id_laboratorio` int(11) NOT NULL,
-  `nombre` varchar(100) NOT NULL,
+  `nombre_lab` varchar(100) NOT NULL,
   `edificio` varchar(25) NOT NULL,
-  `planta` tinyint(4) NOT NULL,
+  `planta` varchar(50) NOT NULL,
   `id_encargado` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -126,8 +110,8 @@ CREATE TABLE `laboratorio` (
 -- Volcado de datos para la tabla `laboratorio`
 --
 
-INSERT INTO `laboratorio` (`id_laboratorio`, `nombre`, `edificio`, `planta`, `id_encargado`) VALUES
-(1, 'Laboratorio de Sistemas', 'Edificio A', 2, NULL);
+INSERT INTO `laboratorio` (`id_laboratorio`, `nombre_lab`, `edificio`, `planta`, `id_encargado`) VALUES
+(1, 'Laboratorio de Redes', 'Pesado 2', 'Alta', 10);
 
 -- --------------------------------------------------------
 
@@ -150,17 +134,51 @@ CREATE TABLE `usuario` (
 --
 
 INSERT INTO `usuario` (`id_usuario`, `nombre`, `appaterno`, `apmaterno`, `rol`, `correo`, `password`) VALUES
-(1, 'Jorge', 'Salgado', 'Ceja', 'admin', 'jorgesalgado4521@gmail.com', 'Jorge123');
+(1, 'Jorge', 'Salgado', 'Ceja', 'admin', 'jorgesalgado4521@gmail.com', 'Jorge123'),
+(12, 'David', 'Rangel', 'Solis', 'encargado', 'DavidSolis@gmail.com', 'David123');
+
+--
+-- Disparadores `usuario`
+--
+DELIMITER $$
+CREATE TRIGGER `actualizar_encargado` AFTER UPDATE ON `usuario` FOR EACH ROW BEGIN
+    
+    IF OLD.rol = 'encargado' AND NEW.rol <> 'encargado' THEN
+        
+        DELETE FROM encargado
+        WHERE id_usuario = OLD.id_usuario;
+
+    END IF;
+END
+$$
+DELIMITER ;
+DELIMITER $$
+CREATE TRIGGER `eliminar_encargado` BEFORE DELETE ON `usuario` FOR EACH ROW BEGIN
+    DELETE FROM encargado
+    WHERE id_usuario = OLD.id_usuario;
+END
+$$
+DELIMITER ;
+DELIMITER $$
+CREATE TRIGGER `insertar_encargado` AFTER INSERT ON `usuario` FOR EACH ROW BEGIN
+IF NEW.rol = 'encargado' THEN
+INSERT INTO encargado (id_usuario)
+VALUES (NEW.id_usuario);
+END IF;
+END
+$$
+DELIMITER ;
 
 --
 -- Índices para tablas volcadas
 --
 
 --
--- Indices de la tabla `categoria`
+-- Indices de la tabla `consumibles`
 --
-ALTER TABLE `categoria`
-  ADD PRIMARY KEY (`id_categoria`);
+ALTER TABLE `consumibles`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `id_laboratorio` (`id_laboratorio`);
 
 --
 -- Indices de la tabla `encargado`
@@ -174,15 +192,7 @@ ALTER TABLE `encargado`
 --
 ALTER TABLE `equipo`
   ADD PRIMARY KEY (`id_equipo`),
-  ADD KEY `id_laboratorio` (`id_laboratorio`),
-  ADD KEY `id_categoria` (`id_categoria`);
-
---
--- Indices de la tabla `historial_incidencias`
---
-ALTER TABLE `historial_incidencias`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `id_incidencia` (`id_incidencia`);
+  ADD KEY `id_laboratorio` (`id_laboratorio`);
 
 --
 -- Indices de la tabla `incidencia`
@@ -210,28 +220,22 @@ ALTER TABLE `usuario`
 --
 
 --
--- AUTO_INCREMENT de la tabla `categoria`
+-- AUTO_INCREMENT de la tabla `consumibles`
 --
-ALTER TABLE `categoria`
-  MODIFY `id_categoria` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+ALTER TABLE `consumibles`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT de la tabla `encargado`
 --
 ALTER TABLE `encargado`
-  MODIFY `id_encargado` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_encargado` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT de la tabla `equipo`
 --
 ALTER TABLE `equipo`
-  MODIFY `id_equipo` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
-
---
--- AUTO_INCREMENT de la tabla `historial_incidencias`
---
-ALTER TABLE `historial_incidencias`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_equipo` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT de la tabla `incidencia`
@@ -243,17 +247,23 @@ ALTER TABLE `incidencia`
 -- AUTO_INCREMENT de la tabla `laboratorio`
 --
 ALTER TABLE `laboratorio`
-  MODIFY `id_laboratorio` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id_laboratorio` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT de la tabla `usuario`
 --
 ALTER TABLE `usuario`
-  MODIFY `id_usuario` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id_usuario` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 
 --
 -- Restricciones para tablas volcadas
 --
+
+--
+-- Filtros para la tabla `consumibles`
+--
+ALTER TABLE `consumibles`
+  ADD CONSTRAINT `consumibles_ibfk_1` FOREIGN KEY (`id_laboratorio`) REFERENCES `laboratorio` (`id_laboratorio`);
 
 --
 -- Filtros para la tabla `encargado`
@@ -265,14 +275,7 @@ ALTER TABLE `encargado`
 -- Filtros para la tabla `equipo`
 --
 ALTER TABLE `equipo`
-  ADD CONSTRAINT `equipo_ibfk_1` FOREIGN KEY (`id_laboratorio`) REFERENCES `laboratorio` (`id_laboratorio`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `equipo_ibfk_2` FOREIGN KEY (`id_categoria`) REFERENCES `categoria` (`id_categoria`) ON DELETE CASCADE ON UPDATE CASCADE;
-
---
--- Filtros para la tabla `historial_incidencias`
---
-ALTER TABLE `historial_incidencias`
-  ADD CONSTRAINT `historial_incidencias_ibfk_1` FOREIGN KEY (`id_incidencia`) REFERENCES `incidencia` (`id_incidencia`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `equipo_ibfk_1` FOREIGN KEY (`id_laboratorio`) REFERENCES `laboratorio` (`id_laboratorio`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Filtros para la tabla `incidencia`
